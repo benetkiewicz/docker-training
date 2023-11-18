@@ -1,23 +1,27 @@
-### Intro do Docker
+### Run and develop using docker
 
-This is the very simple aspnet core application that will be used to demonstrate some docker capabilities. Notice how small it is! Just two files and few lines of code.
+First you need a dotnet core container image.
 
-The purpose of first lesson will be to host that aspnet core app without having dotnet runtime hosted on your machine. But if you have it, then as a step 0, you can try to run it and check if it works. 
+```
+docker pull mcr.microsoft.com/dotnet/sdk:8.0
+```
 
-Run
+Having that on your machine, you can share a part of your filesystem with docker using a feature named *volume*.
 
-```dotnet restore```
+Couple things to know about working with dotnet sdk container:
 
-followed by
+1. It hosts apps from */var/www/* directory
+1. We will make a volume to map our current directory on host to */var/www* on the container
+1. The container likes to expose its apps on port 8080, so we map that container port to 5001 on host.
 
-```dotnet build --no-restore```
+From the main project directory run 
 
-followed by
+```
+docker run -p 5001:8080 -v ${PWD}:/var/www -w "/var/www" mcr.microsoft.com/dotnet/sdk:8.0 bash -c "dotnet watch run"
+```
 
-```dotnet run --no-build --no-restore --urls=http://localhost:5555```
+This should start the container and you should be able to access app using `http://localhost:5001/hello`. Note that we're running the app in the watch mode, so go ahead and change the text being returned by the `/hello` enpoint. After saving the file and refreshing the page, you should see the modified text. That is how development with docker can be done.
 
-All the above steps should work and after accessing `http://localhost:5555/hello` you should see
-
-> Hello world!
-
-Proceed to lesson 1 to see how to run and develop the app without dotnet runtime, using docker image of this runtime.
+* Configuring docker port by running `dotnet watch run --urls=http://*:5432` didn't work for me.
+* One could try overriding `HTTP_PORTS` enironment variable.
+* This should be possible using multilayer dockerfiles. Will experiment with that in the upcoming lessons.
