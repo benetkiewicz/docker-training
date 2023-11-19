@@ -1,4 +1,4 @@
-### Intro do Docker
+### Intro to Docker
 
 This is the very simple aspnet core application that will be used to demonstrate some docker capabilities. Notice how small it is! Just two files and few lines of code.
 
