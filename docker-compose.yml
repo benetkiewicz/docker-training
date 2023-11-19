@@ -1,0 +1,19 @@
+version: "3.x"
+services:
+  sql:
+    container_name: dev-sql
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    build:
+      context: .
+      dockerfile: sql.dockerfile
+    ports:
+      - "1433:1433"
+  api:
+    container_name: dockerweb-prod
+    build:
+      context: .
+      dockerfile: prod.dockerfile
+    depends_on:
+      - sql
+    ports:
+      - "8083:8080"

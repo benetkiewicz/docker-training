@@ -1,33 +1,49 @@
-### Creating production image
+### Orchestrating services with docker compose
 
-Now it is time to ship it to production!
+Finally let's make it a bit more complex and try to connect docker-hosted API with a docker-hosted database. Working with multiple docker images would soon become hard to manage, so let's use docker compose to orchestrate everything for easy setup and teardown. 
 
-First let's make a change in the code, so we will know if we're hitting the devlopment or production environment.
+In terms of the app, I used `Dapper` and `Microsoft.Data.SqlClient` to query version from the database, so I don't have to worry about seeding it with any data.
 
 ```csharp
-app.MapGet("/hello", () => $"Hello world from {app.Environment.EnvironmentName} instance!");
+using SqlConnection connection = new("..."); // removed for clarity
+await connection.OpenAsync();
+string sqlVersion = await connection.QueryFirstOrDefaultAsync<string>(
+    "SELECT @@version",
+    commandType: CommandType.Text);
 ```
 
-Now focus on the production dockerfile. Notice it is multi-stage, there are separate steps for restore, build, publish and creating a final image. There are at least two good resons for that.
+To spin up the database, we need a new docker file `sql.dockerfile`, where we set things like port and password.
 
-First, notice that to build aspnet core project we need to have SDK, but for hosting we only need runtime, so different stages are based of diferent images and result image will be based on smaller runtime image.
-
-Second, stages are cached in docker cache with some hash key, so only changing the code and no changes in nuget dependencies will enable docker to take cached restore stage and compile new code on top of that.
-
-Build the production image with:
+To build and test it on its own, the following command may get handy:
 
 ```
-docker build -f prod.dockerfile -t dockerweb-prod .
+docker build -f sql.dockerfile -t sql-dev .
 ```
 
-And run it with:
+followed by 
 
 ```
-docker run -p 8083:8080 dockerweb-prod
+docker run --name sql-dev -p 1433:1433 sql-dev
 ```
 
-Accessing `https://localhost:8083/hello` should result with _Hello world from Production_ response.
+Finally time for some orchestration. Consifuration is contained in `docker-compose.yml` file. The are two services defined:
+- sql - that points to newly created `sql.dockerfile`, instructed to expose default 1433 port
+- api - pointing to `prod.dockerfile`, exposing 8083 port as in lesson 3
 
-Links:
-* https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/docker/building-net-docker-images?view=aspnetcore-8.0
-* https://kevsoft.net/2020/05/02/using-multi-stage-builds-to-create-class-library-nuget-packages.html
+Please note that *localhost* on *sql* service is a different thing from *localhost* on *api* service, since containers are isolated by default. Docker manages communication between containers behind the scenes. They can refer to each other simply by container name, so the connection string in the api service will be ```Data Source=dev-sql,1433;Initial Catalog=...```
+
+Time to build everything:
+
+```
+docker compose build
+```
+
+and start!
+
+```
+docker compose up
+```
+
+If all went well, the SQL version should be available at `http://localhost:8083/hello`
+
+Note how simple this is to run everything at once, comparing to previous lessons. No need to worry about container names, ports, etc. 
